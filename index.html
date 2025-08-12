@@ -266,7 +266,7 @@ const seed = {
     { id:"문서", name:"문서", color:"#9b59b6" },
     { id:"행정·운영", name:"행정·운영", color:"#1abc9c" },
     { id:"기획·제안", name:"기획·제안", color:"#34495e" },
-    { id:"learning", name:"Learning", color:"#16a085" },
+    { id:"personal", name:"Personal", color:"#ff6b6b" },
     { id:"archive", name:"Archive", color:"#95a5a6" }
   ],
   exportDate: new Date().toISOString(),
@@ -282,6 +282,46 @@ const store = {
   },
   set(data){ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
 };
+
+// --- Category migration to target set ---
+function migrateStore(){
+  const target = [
+    { id:"업무 전반", name:"업무 전반", color:"#3498db" },
+    { id:"디자인", name:"디자인", color:"#e74c3c" },
+    { id:"자료 관리·리서치", name:"자료 관리·리서치", color:"#f39c12" },
+    { id:"문서", name:"문서", color:"#9b59b6" },
+    { id:"행정·운영", name:"행정·운영", color:"#1abc9c" },
+    { id:"기획·제안", name:"기획·제안", color:"#34495e" },
+    { id:"personal", name:"Personal", color:"#ff6b6b" },
+    { id:"archive", name:"Archive", color:"#95a5a6" }
+  ];
+  const data = store.get();
+  const currentIds = (data.categories||[]).map(c=>c.id);
+  const targetIds = target.map(c=>c.id);
+  const same = JSON.stringify(currentIds) === JSON.stringify(targetIds);
+  if(!same){
+    data.categories = target;
+    const valid = new Set(targetIds);
+    const map = {
+      'learning':'personal',
+      'Work':'업무 전반',
+      'Ideas':'기획·제안',
+      'Research':'자료 관리·리서치',
+      'Meetings':'행정·운영',
+      'Projects':'기획·제안',
+      'Personal':'personal',
+      'Archive':'archive'
+    };
+    data.notes = (data.notes||[]).map(n=>{
+      if(n.categoryId && !valid.has(n.categoryId)){
+        const next = map[n.categoryId] || null;
+        return { ...n, categoryId: next };
+      }
+      return n;
+    });
+    store.set(data);
+  }
+}
 
 // --- Auth helpers ---
 function getAuth(){
@@ -673,6 +713,7 @@ document.getElementById('exportBtn').addEventListener('click', exportJson);
 });
 
 // Init
+migrateStore();
 updateAuthUI();
 renderByRoute();
 </script>
