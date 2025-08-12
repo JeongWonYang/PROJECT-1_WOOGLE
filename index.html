@@ -3,16 +3,17 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>WOOGLE — Notes Archive</title>
+  <title>WOOGLE — Notes Archive (with Password)</title>
   <style>
     :root{
       --bg:#ffffff; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb; --primary:#1a73e8;
       --chip:#f3f4f6; --card:#ffffff; --shadow:0 8px 24px rgba(0,0,0,.08);
       --radius:16px; --radius-sm:12px; --radius-xs:8px;
+      --ok:#16a34a; --warn:#f59e0b; --danger:#ef4444;
     }
     *{box-sizing:border-box}
     html,body{height:100%}
-    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Apple SD Gothic Neo,\"Noto Sans KR\",\"Malgun Gothic\",sans-serif}
+    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Apple SD Gothic Neo,"Noto Sans KR","Malgun Gothic",sans-serif}
     a{color:inherit;text-decoration:none}
     button{cursor:pointer;border:0}
     .container{max-width:1100px;margin:0 auto;padding:24px}
@@ -33,6 +34,7 @@
     .search-actions{display:flex;gap:10px}
     .btn{border-radius:999px;background:#f8f9fa;padding:10px 16px;color:#202124;font-weight:500}
     .btn.primary{background:var(--primary);color:#fff}
+    .btn.ghost{background:transparent;border:1px solid var(--border)}
 
     .cat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;width:min(720px,92%)}
     .cat{border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;background:#fff;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow)}
@@ -58,7 +60,10 @@
     .chips{display:flex;flex-wrap:wrap;gap:8px}
     .chip{background:var(--chip);border:1px solid var(--border);border-radius:999px;padding:6px 10px;font-size:13px;color:var(--muted)}
 
-    .toolbar{display:flex;gap:10px}
+    .toolbar{display:flex;gap:10px;align-items:center}
+    .auth-badge{font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
+    .auth-badge.ok{color:var(--ok);border-color:var(--ok)}
+    .auth-badge.warn{color:var(--warn);border-color:var(--warn)}
 
     main{padding:18px 24px}
     .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
@@ -80,15 +85,17 @@
     .sheet main{padding:20px;display:grid;grid-template-columns:1fr 320px;gap:16px}
     @media(max-width:800px){.sheet main{grid-template-columns:1fr}}
     .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
-    .field input[type="text"], .field textarea, .field select{border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px}
+    .field input[type="text"], .field input[type="password"], .field textarea, .field select{border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px}
     .field textarea{min-height:160px;resize:vertical}
     .thumb{width:100%;border:1px dashed var(--border);border-radius:12px;min-height:160px;display:grid;place-items:center;overflow:hidden}
     .thumb img{max-width:100%;max-height:260px;display:block}
     .sheet footer{padding:16px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
 
+    /* --- Simple Sheet (Auth) --- */
+    .sheet.simple main{display:block}
+
     /* --- Empty --- */
     .empty{border:1px dashed var(--border);border-radius:16px;padding:24px;text-align:center;color:var(--muted)}
-
   </style>
 </head>
 <body>
@@ -105,9 +112,7 @@
           <button class="btn primary" id="goNew">+ 새 글</button>
         </div>
       </div>
-      <div class="cat-grid" id="homeCats">
-        <!-- categories rendered here -->
-      </div>
+      <div class="cat-grid" id="homeCats"></div>
     </div>
   </section>
 
@@ -122,6 +127,10 @@
         <button class="btn" id="appSearchBtn">검색</button>
       </div>
       <div class="toolbar">
+        <span id="authBadge" class="auth-badge">🔒 잠금됨</span>
+        <button class="btn ghost" id="loginBtn">로그인</button>
+        <button class="btn ghost" id="changePwBtn" style="display:none">비밀번호 설정/변경</button>
+        <button class="btn ghost" id="logoutBtn" style="display:none">로그아웃</button>
         <button class="btn primary" id="newNoteBtn">+ 새 글</button>
         <button class="btn outline" id="importBtn" title="JSON 가져오기">가져오기</button>
         <button class="btn outline" id="exportBtn" title="JSON 내보내기">내보내기</button>
@@ -185,23 +194,72 @@
     </div>
   </div>
 
+  <!-- Auth Modal -->
+  <div class="modal" id="authModal" role="dialog" aria-modal="true">
+    <div class="sheet simple" role="document">
+      <header>
+        <strong>로그인</strong>
+        <button class="btn outline" id="closeAuth">닫기</button>
+      </header>
+      <main style="padding:20px">
+        <div id="authInfo" style="margin-bottom:8px;color:var(--muted)">수정을 하려면 비밀번호가 필요합니다.</div>
+        <div class="field">
+          <label for="authPw">비밀번호</label>
+          <input id="authPw" type="password" placeholder="비밀번호 입력" />
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button class="btn ghost" id="gotoChange">비밀번호 설정/변경</button>
+          <button class="btn primary" id="doLogin">로그인</button>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Password Set/Change Modal -->
+  <div class="modal" id="pwModal" role="dialog" aria-modal="true">
+    <div class="sheet simple" role="document">
+      <header>
+        <strong id="pwTitle">비밀번호 설정</strong>
+        <button class="btn outline" id="closePw">닫기</button>
+      </header>
+      <main style="padding:20px">
+        <div id="pwInfo" style="margin-bottom:8px;color:var(--muted)"></div>
+        <div class="field" id="rowCurrent" style="display:none">
+          <label for="pwCurrent">현재 비밀번호</label>
+          <input id="pwCurrent" type="password" placeholder="현재 비밀번호" />
+        </div>
+        <div class="field">
+          <label for="pwNew">새 비밀번호</label>
+          <input id="pwNew" type="password" placeholder="최소 4자" />
+        </div>
+        <div class="field">
+          <label for="pwConfirm">새 비밀번호 확인</label>
+          <input id="pwConfirm" type="password" placeholder="다시 입력" />
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button class="btn primary" id="savePwBtn">저장</button>
+        </div>
+      </main>
+    </div>
+  </div>
+
 <script>
 /**
- * WOOGLE Notes Archive
- * - Plain HTML/CSS/JS (no frameworks)
- * - Data persisted in localStorage ('woogle.store')
- * - Features: Google-like home, create/edit notes, keyword+tag+content search,
- *   category filters, JSON import/export, image upload (base64), priority pills
- *
- * Tip: 첫 실행 시 아래 seed가 로컬스토리지에 저장됩니다.
+ * WOOGLE Notes Archive — with Password Lock
+ * - Password hash saved in localStorage (salted SHA-256)
+ * - Session (20분) in sessionStorage
+ * - 로그인/로그아웃/비밀번호 설정·변경
+ * - 편집/저장/삭제 시 인증 요구
  */
 
 const STORAGE_KEY = 'woogle.store.v1';
+const AUTH_KEY = 'woogle.auth.v1';
+const SESSION_KEY = 'woogle.session.v1';
+const SESSION_MINUTES = 20;
+
 const seed = {
-  notes: [
-    
-  ],
-  categories:[
+  notes: [],
+  categories: [
     { id:"업무 전반", name:"업무 전반", color:"#3498db" },
     { id:"디자인", name:"디자인", color:"#e74c3c" },
     { id:"자료 관리·리서치", name:"자료 관리·리서치", color:"#f39c12" },
@@ -211,8 +269,8 @@ const seed = {
     { id:"learning", name:"Learning", color:"#16a085" },
     { id:"archive", name:"Archive", color:"#95a5a6" }
   ],
-  exportDate: "2025-08-12T05:09:18.996Z",
-  version: "1.0"
+  exportDate: new Date().toISOString(),
+  version: '1.0'
 };
 
 // --- Store helpers ---
@@ -224,6 +282,73 @@ const store = {
   },
   set(data){ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
 };
+
+// --- Auth helpers ---
+function getAuth(){
+  const raw = localStorage.getItem(AUTH_KEY);
+  if(!raw) return null;
+  try{ return JSON.parse(raw); } catch{ return null; }
+}
+function setAuth(obj){ localStorage.setItem(AUTH_KEY, JSON.stringify(obj)); }
+function isPasswordSet(){ return !!(getAuth()?.hash); }
+
+function getSession(){
+  try{ return JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null'); }catch{ return null; }
+}
+function setSessionAuthed(minutes=SESSION_MINUTES){
+  const until = Date.now() + minutes*60*1000;
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({until}));
+  updateAuthUI();
+}
+function clearSession(){ sessionStorage.removeItem(SESSION_KEY); updateAuthUI(); }
+function isAuthed(){ const s = getSession(); return !!(s && s.until> Date.now()); }
+
+function toHex(buffer){ return Array.from(new Uint8Array(buffer)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
+async function sha256Hex(str){ const buf = new TextEncoder().encode(str); const hash = await crypto.subtle.digest('SHA-256', buf); return toHex(hash); }
+function randomHex(len=16){ const a = new Uint8Array(len); crypto.getRandomValues(a); return Array.from(a).map(b=>b.toString(16).padStart(2,'0')).join(''); }
+async function hashWithSalt(pw, salt){ return sha256Hex(`${salt}|${pw}`); }
+
+async function verifyPassword(pw){
+  const rec = getAuth();
+  if(!rec) return false;
+  const h = await hashWithSalt(pw, rec.salt);
+  return h === rec.hash;
+}
+
+async function setOrChangePassword({current, next}){
+  if((next||'').length < 4) throw new Error('비밀번호는 최소 4자');
+  const existed = isPasswordSet();
+  if(existed){
+    const ok = await verifyPassword(current||'');
+    if(!ok) throw new Error('현재 비밀번호가 일치하지 않습니다');
+  }
+  const salt = randomHex(16);
+  const hash = await hashWithSalt(next, salt);
+  setAuth({salt, hash});
+  setSessionAuthed();
+}
+
+function updateAuthUI(){
+  const badge = document.getElementById('authBadge');
+  const loginBtn = document.getElementById('loginBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const changeBtn = document.getElementById('changePwBtn');
+  const authed = isAuthed();
+  const hasPw = isPasswordSet();
+  if(authed){
+    badge.textContent = '🔓 로그인됨';
+    badge.className = 'auth-badge ok';
+    loginBtn.style.display='none';
+    logoutBtn.style.display='inline-flex';
+    changeBtn.style.display='inline-flex';
+  } else {
+    badge.textContent = hasPw? '🔒 잠금됨' : '⚠️ 비밀번호 미설정';
+    badge.className = 'auth-badge ' + (hasPw? '':'warn');
+    loginBtn.style.display='inline-flex';
+    logoutBtn.style.display='none';
+    changeBtn.style.display='inline-flex';
+  }
+}
 
 // --- Simple Router ---
 window.addEventListener('hashchange', renderByRoute);
@@ -244,7 +369,6 @@ function showHome(){
   document.getElementById('home').style.display='grid';
   document.getElementById('appHeader').style.display='none';
   document.getElementById('appMain').style.display='none';
-  // categories
   const {categories} = store.get();
   const grid = document.getElementById('homeCats');
   grid.innerHTML = '';
@@ -262,9 +386,9 @@ function showApp(q='', cat=''){
   document.getElementById('home').style.display='none';
   document.getElementById('appHeader').style.display='block';
   document.getElementById('appMain').style.display='block';
+  updateAuthUI();
 
   const state = store.get();
-  // chips
   const chips = document.getElementById('filterChips');
   chips.innerHTML = '';
   state.categories.forEach(c=>{
@@ -280,7 +404,6 @@ function showApp(q='', cat=''){
   const input = document.getElementById('appQuery');
   input.value = q;
 
-  // results
   const grid = document.getElementById('noteGrid');
   grid.innerHTML = '';
   const results = searchNotes(state, q, cat);
@@ -306,7 +429,9 @@ function showApp(q='', cat=''){
     `;
     card.addEventListener('click', (e)=>{
       const btn = e.target.closest('button[data-action="edit"]');
-      if(btn){ openEditor(n.id); }
+      if(btn){
+        guardAuth(()=> openEditor(n.id));
+      }
     });
     grid.appendChild(card);
   });
@@ -334,7 +459,6 @@ function openEditor(id){
   document.getElementById('modalTitle').textContent = isEdit? '글 수정':'새 글';
   document.getElementById('deleteBtn').style.display = isEdit? 'inline-flex':'none';
 
-  // fill categories
   const sel = document.getElementById('fCategory');
   sel.innerHTML = '<option value="">(카테고리 없음)</option>' + state.categories.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
 
@@ -356,12 +480,12 @@ function openEditor(id){
   document.getElementById('editorModal').classList.add('show');
 }
 
-function closeEditor(){
-  document.getElementById('editorModal').classList.remove('show');
-}
+function closeEditor(){ document.getElementById('editorModal').classList.remove('show'); }
 
-// Save
-function saveEditor(){
+// Save (guarded)
+function saveEditor(){ guardAuth(_saveEditorBody); }
+
+function _saveEditorBody(){
   const state = store.get();
   const fTitle = document.getElementById('fTitle').value.trim();
   const fContent = document.getElementById('fContent').value.trim();
@@ -387,12 +511,12 @@ function saveEditor(){
   renderByRoute();
 }
 
-function deleteNote(){
+function deleteNote(){ guardAuth(_deleteNoteBody); }
+function _deleteNoteBody(){
   if(!editingId) return;
   if(!confirm('이 글을 삭제할까요?')) return;
   const state = store.get();
-  const next = state.notes.filter(n=> n.id!==editingId);
-  state.notes = next;
+  state.notes = state.notes.filter(n=> n.id!==editingId);
   store.set(state);
   closeEditor();
   renderByRoute();
@@ -414,15 +538,10 @@ if(fImage){
 }
 
 // --- Utilities ---
-function escapeHtml(str=''){
-  return str.replace(/[&<>\"']/g, m=> ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[m]));
-}
+function escapeHtml(str=''){ return str.replace(/[&<>"']/g, m=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m])); }
 function highlight(text, q){
   if(!q) return text;
-  try{
-    const re = new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
-    return text.replace(re,'<mark>$1</mark>');
-  }catch(e){ return text; }
+  try{ const re = new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'); return text.replace(re,'<mark>$1</mark>'); }catch(e){ return text; }
 }
 
 // --- Import/Export ---
@@ -448,6 +567,38 @@ function importJsonFile(file){
   reader.readAsText(file);
 }
 
+// --- Auth Flow & Guards ---
+let afterLogin = null; // pending action
+function guardAuth(fn){
+  if(isAuthed()) { fn(); return; }
+  // if no password set, guide to set first
+  if(!isPasswordSet()){
+    openPwModal();
+  } else {
+    openAuthModal();
+  }
+  afterLogin = fn;
+}
+
+function openAuthModal(){
+  document.getElementById('authInfo').textContent = '수정을 하려면 비밀번호가 필요합니다.';
+  document.getElementById('authPw').value='';
+  document.getElementById('authModal').classList.add('show');
+}
+function closeAuthModal(){ document.getElementById('authModal').classList.remove('show'); }
+
+function openPwModal(){
+  const has = isPasswordSet();
+  document.getElementById('pwTitle').textContent = has? '비밀번호 변경' : '비밀번호 설정';
+  document.getElementById('pwInfo').textContent = has? '현재 비밀번호 확인 후 새 비밀번호를 설정하세요.' : '처음 사용하는 경우 비밀번호를 설정하세요.';
+  document.getElementById('rowCurrent').style.display = has? 'block':'none';
+  document.getElementById('pwCurrent').value='';
+  document.getElementById('pwNew').value='';
+  document.getElementById('pwConfirm').value='';
+  document.getElementById('pwModal').classList.add('show');
+}
+function closePwModal(){ document.getElementById('pwModal').classList.remove('show'); }
+
 // --- Wire events ---
 // Home
 document.getElementById('goSearch').addEventListener('click', ()=>{
@@ -455,11 +606,9 @@ document.getElementById('goSearch').addEventListener('click', ()=>{
   location.hash = q? `#/search?q=${encodeURIComponent(q)}` : '#/app';
 });
 
-document.getElementById('homeQuery').addEventListener('keydown', (e)=>{
-  if(e.key==='Enter') document.getElementById('goSearch').click();
-});
+document.getElementById('homeQuery').addEventListener('keydown', (e)=>{ if(e.key==='Enter') document.getElementById('goSearch').click(); });
 
-document.getElementById('goNew').addEventListener('click', ()=>{ openEditor(); });
+document.getElementById('goNew').addEventListener('click', ()=>{ guardAuth(()=> openEditor()); });
 
 // App bar
 document.getElementById('appSearchBtn').addEventListener('click', ()=>{
@@ -469,16 +618,12 @@ document.getElementById('appSearchBtn').addEventListener('click', ()=>{
   location.hash = `${base}?${cat?`cat=${encodeURIComponent(cat)}&`:''}${q?`q=${encodeURIComponent(q)}`:''}`;
 });
 
-document.getElementById('appQuery').addEventListener('keydown', (e)=>{
-  if(e.key==='Enter') document.getElementById('appSearchBtn').click();
-});
-
-document.getElementById('newNoteBtn').addEventListener('click', ()=> openEditor());
+document.getElementById('appQuery').addEventListener('keydown', (e)=>{ if(e.key==='Enter') document.getElementById('appSearchBtn').click(); });
 
 // Editor buttons
 document.getElementById('closeEditor').addEventListener('click', closeEditor);
-(document.getElementById('saveBtn')).addEventListener('click', saveEditor);
-(document.getElementById('deleteBtn')).addEventListener('click', deleteNote);
+document.getElementById('saveBtn').addEventListener('click', saveEditor);
+document.getElementById('deleteBtn').addEventListener('click', ()=> deleteNote());
 
 // Import/Export
 const importBtn = document.getElementById('importBtn');
@@ -489,11 +634,46 @@ importFile.addEventListener('change', (e)=>{ const f = e.target.files?.[0]; if(f
 document.getElementById('exportBtn').addEventListener('click', exportJson);
 
 // Brand click returns home
-(document.getElementById('brandLink')).addEventListener('click', (e)=>{
-  e.preventDefault(); location.hash = '#/';
+(document.getElementById('brandLink')).addEventListener('click', (e)=>{ e.preventDefault(); location.hash = '#/'; });
+
+// Auth toolbar
+(document.getElementById('loginBtn')).addEventListener('click', ()=>{ isPasswordSet()? openAuthModal(): openPwModal(); });
+(document.getElementById('logoutBtn')).addEventListener('click', ()=>{ clearSession(); alert('로그아웃 되었습니다.'); });
+(document.getElementById('changePwBtn')).addEventListener('click', ()=> openPwModal());
+
+// Auth modal actions
+(document.getElementById('closeAuth')).addEventListener('click', ()=>{ closeAuthModal(); afterLogin=null; });
+(document.getElementById('gotoChange')).addEventListener('click', ()=>{ closeAuthModal(); openPwModal(); });
+(document.getElementById('doLogin')).addEventListener('click', async ()=>{
+  const pw = document.getElementById('authPw').value;
+  if(!pw){ alert('비밀번호를 입력하세요'); return; }
+  if(await verifyPassword(pw)){
+    setSessionAuthed();
+    closeAuthModal();
+    if(typeof afterLogin==='function'){ const fn = afterLogin; afterLogin=null; fn(); }
+  } else {
+    alert('비밀번호가 올바르지 않습니다');
+  }
+});
+
+// Password modal actions
+(document.getElementById('closePw')).addEventListener('click', ()=>{ closePwModal(); });
+(document.getElementById('savePwBtn')).addEventListener('click', async ()=>{
+  const has = isPasswordSet();
+  const current = document.getElementById('pwCurrent').value;
+  const next = document.getElementById('pwNew').value;
+  const confirm = document.getElementById('pwConfirm').value;
+  if(next!==confirm){ alert('새 비밀번호와 확인이 일치하지 않습니다'); return; }
+  try{
+    await setOrChangePassword({current: has? current: undefined, next});
+    closePwModal();
+    alert('비밀번호가 저장되었습니다. (20분 동안 로그인 상태 유지)');
+    if(typeof afterLogin==='function'){ const fn = afterLogin; afterLogin=null; fn(); }
+  }catch(e){ alert(e.message||'실패했습니다'); }
 });
 
 // Init
+updateAuthUI();
 renderByRoute();
 </script>
 </body>
